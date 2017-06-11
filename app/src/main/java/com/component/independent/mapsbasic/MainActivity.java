@@ -206,7 +206,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                             distance = jsonObject_distance.getString("value");
 
                             int distance_kms = (Integer.valueOf(distance))/1000;
-                            if(distance_kms<2) {
+                            if(distance_kms<1) {
                                 int mins_duration = (Integer.valueOf(duration))/60;
                                 Toast.makeText(MainActivity.this, "ETA : " + mins_duration + "minutes", Toast.LENGTH_SHORT).show();
                                 if(mins_duration<2){
