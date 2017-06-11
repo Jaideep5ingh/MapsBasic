@@ -56,7 +56,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     String first = "https://maps.googleapis.com/maps/api/distancematrix/json?units=imperial&origins=";
     String second ="&destinations=28.7156138,77.1276354&key=AIzaSyBb3Cv2OOTZdIUxlNV0OBC-HfdGcvrPDsg";
     String url_on ="https://api.thingspeak.com/update?api_key=6S9LM0BJ63OYT5CP&field1=1";
-    String json_url,duration;
+    String json_url,duration,distance;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,7 +78,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
 
-
+    //Checks for availablity of location services
     public boolean servicesAvailable() {
         GoogleApiAvailability googleApiAvailability = GoogleApiAvailability.getInstance();
         int isAvailable = googleApiAvailability.isGooglePlayServicesAvailable(MainActivity.this);
@@ -141,7 +141,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     public void onConnected(@Nullable Bundle bundle) {
         locationRequest = LocationRequest.create();
         locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        locationRequest.setInterval(45*1000);
+        locationRequest.setInterval(400*1000);
 
         if (ActivityCompat.checkSelfPermission(this,
                 android.Manifest.permission.ACCESS_FINE_LOCATION)
@@ -181,11 +181,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         mGoogleMap.animateCamera(updates);
         updateETA(location);
         setHome(location);
-
-
-
     }
     }
+
 
     private void updateETA(Location location) {
         String lat=String.valueOf(location.getLatitude());
@@ -196,16 +194,29 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 new Response.Listener<JSONObject>() {
                     @Override
                     public void onResponse(JSONObject response) {
-                        JSONObject jsonObject=null;
+                        JSONObject jsonObject_time=null;
+                        JSONObject jsonObject_distance = null;
                         try {
-                            jsonObject = response.getJSONArray("rows").getJSONObject(0)
+                            jsonObject_time = response.getJSONArray("rows").getJSONObject(0)
                                     .getJSONArray("elements").getJSONObject(0).getJSONObject("duration");
-                            duration = jsonObject.getString("value");
-                            int mins_duration = (Integer.valueOf(duration))/60;
-                            Toast.makeText(MainActivity.this, "ETA : " + mins_duration + "minutes", Toast.LENGTH_SHORT).show();
-                            if(mins_duration<1){
-                                updateServer();
+                            duration = jsonObject_time.getString("value");
+
+                            jsonObject_distance = response.getJSONArray("rows").getJSONObject(0)
+                                    .getJSONArray("elements").getJSONObject(0).getJSONObject("distance");
+                            distance = jsonObject_distance.getString("value");
+
+                            int distance_kms = (Integer.valueOf(distance))/1000;
+                            if(distance_kms<2) {
+                                int mins_duration = (Integer.valueOf(duration))/60;
+                                Toast.makeText(MainActivity.this, "ETA : " + mins_duration + "minutes", Toast.LENGTH_SHORT).show();
+                                if(mins_duration<2){
+                                    updateServer();
+                                }
                             }
+                            else {
+                                Toast.makeText(MainActivity.this, "Distance greater than 2 km", Toast.LENGTH_SHORT).show();
+                            }
+
                         } catch (JSONException e) {
                             e.printStackTrace();
                         }
@@ -221,6 +232,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     }
 
+    //send values to firebase
     private void updateServer() {
         RequestQueue req = Volley.newRequestQueue(MainActivity.this);
         StringRequest stringRequest = new StringRequest(Request.Method.GET, url_on, new Response.Listener<String>() {
@@ -237,7 +249,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         req.add(stringRequest);
     }
 
-
+    //setting home pin
     public void setHome(final Location location) {
         if(lat_home==null && long_home==null){
             AlertDialog adb = new AlertDialog.Builder(this)
@@ -262,10 +274,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     .create();
             adb.show();
         }
-
         }
 
 
+    //store home pin values to shared prefs
     private void setValues(Location location) {
         String lat,lng;
         lat =  String.valueOf(location.getLatitude());
@@ -276,7 +288,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     }
 
-
+    //camera adjustment at location
     private void goToLocationZoom(double lat,double lng,int zoom){
         LatLng ll = new LatLng(lat,lng);
         CameraUpdate updates = CameraUpdateFactory.newLatLngZoom(ll,zoom);
